@@ -257,7 +257,7 @@ The elastic operator can be efficiently inverted using multigrid. Algebraic mult
 
 We can instead invert the relation between multigrid and block solvers, using multigrid as the overarching solver and block algorithms for the smoothers. The most important consideration is to accurately capture coupling across the fault interface. Pointwise smoothers fail completely in this respect.
 
-We construct the fine grid smoother by first reordering the unknowns so that dofs duplicated by the introduced faults are adjacent. Next we combine unknowns coupled by fault cohesive cells into blocks, which is stored by the PETSc matrix object. This blocking is then used by the Variable Point-Block Jacobi (VPBJACOBI) preconditioner to extract and invert these fault blocks. This smoother can be selected for the AMG fine grid, and easily compared with standard choices. In fact, the entire solver can be dynamically assembled at runtime from command line options.
+We construct the fine grid smoother by first reordering the unknowns so that dofs duplicated by the introduced faults are adjacent. Since the mesh ordering is generally good for banding, the reordering transformation is a greedy algorithm on top of the original ordering. Next we combine unknowns coupled by fault cohesive cells into blocks, which is stored by the PETSc matrix object by marking the start of each block. This blocking is then used by the Variable Point-Block Jacobi (VPBJACOBI) preconditioner to extract and invert these fault blocks. This smoother can be selected for the AMG fine grid, and easily compared with standard choices. In fact, the entire solver can be dynamically assembled at runtime from command line options.
 
 Consider the following mesh with two cohesive cells comprising one fault,
 % make -f ./gmakefile test search="dm_impls_plex_tests-ex69_tri_2" EXTRA_OPTIONS="-dm_view :${PWD}/tri_t1.tex:ascii_latex -dm_plex_view_numbers 0 -dm_plex_transform_cohesive_width 0.1"
@@ -292,7 +292,22 @@ Consider the following mesh with two cohesive cells comprising one fault,
 \path (0.,-5.55112e-17) node(4_0) [fill,inner sep=1pt,shape=circle,color=gray] {};
 \path (-2.,2.) node(5_0) [fill,inner sep=1pt,shape=circle,color=gray] {};
 \end{tikzpicture}
-where we have introduced a fault gap purely to show explicitly the cohesive cells, which in the simulation have zero volume. In~\cref{fig:sparsityC}, we display the sparsity pattern of our operator highlighting only the $C$ and $C^T$ matrices. The red and blue entries indicate the two sides of the fault, which are distinguished by positive and negative terms. The top panel is the sparsity in the original mesh ordering, whereas the bottom has grouped unknowns coupled by cohesive cells into two blocks.
+where we have introduced a fault gap purely to show explicitly the cohesive cells, which in the simulation have zero volume. In~\cref{fig:sparsityC}, we display the sparsity pattern of our operator highlighting only the $C$ and $C^T$ matrices. The red and blue entries indicate the two sides of the fault, which are distinguished by positive and negative terms. The top panel is the sparsity in the original mesh ordering, whereas the bottom has grouped unknowns coupled by cohesive cells into two fault blocks, followed by the usual elastic blocks of size two. We can see the blocking for this mesh in output from PETSc:
+\begin{verbatim}
+Mat Object: Jacobian 1 MPI process
+  type: seqaij
+  rows=24, cols=24, bs=2 variable blocks set
+  total: nonzeros=320, allocated nonzeros=320
+  total number of mallocs used during MatSetValues calls=0
+    IS Object: Block Sizes 1 MPI process
+      type: general
+    Number of indices in set 5
+    0 12
+    1 6
+    2 2
+    3 2
+    4 2
+\end{verbatim}
 
 \begin{figure}
 \centering
@@ -304,6 +319,8 @@ where we have introduced a fault gap purely to show explicitly the cohesive cell
 \end{figure}
 
 This solver is particularly well-suited to GPUs, as the VPBJACOBI preconditioner has been optimized for this architecture by the libCEED team~\cite{brownbarrabeamsghaffariknepleymosesshakeristengelthompsonzhang2022}
+
+\section{Results}
 
 \section{Conclusion}
 
